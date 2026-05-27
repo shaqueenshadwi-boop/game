@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 Master Quiz - 10,000+ Questions</title>
+    <style>
+        :root {
+            --bg-color: #faf8ef;
+            --grid-bg: #bbada0;
+            --cell-bg: #cdc1b4;
+            --text-dark: #776e65;
+            --danger: #f65e3b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            overflow: hidden;
+        }
+
+        /* BERANDA */
+        #start-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .btn-main {
+            padding: 15px 40px;
+            font-size: 22px;
+            background: #8f7a66;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn-main:hover { transform: scale(1.1); background: var(--text-dark); }
+
+        /* GAME GRID */
+        .score-box {
+            background: var(--grid-bg);
+            padding: 10px 30px;
+            border-radius: 5px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .grid {
+            width: 380px;
+            height: 380px;
+            background: var(--grid-bg);
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .cell {
+            width: 85px; height: 85px;
+            background: var(--cell-bg);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            font-weight: bold;
+            color: var(--text-dark);
+        }
+
+        /* WARNA TILE */
+        .tile-2 { background: #eee4da; }
+        .tile-4 { background: #ede0c8; }
+        .tile-8 { background: #f2b179; color: white; }
+        .tile-16 { background: #f59563; color: white; }
+        .tile-32 { background: #f67c5f; color: white; }
+        .tile-64 { background: #f65e3b; color: white; }
+        .tile-128 { background: #edcf72; color: white; font-size: 25px; }
+        .tile-256 { background: #edcc61; color: white; font-size: 25px; }
+        .tile-512 { background: #edc850; color: white; font-size: 25px; }
+        .tile-1024 { background: #edc53f; color: white; font-size: 20px; }
+        .tile-2048 { background: #edc22e; color: white; font-size: 20px; }
+
+        /* MODAL KUIS */
+        #quiz-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            position: relative;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .opt-btn {
+            padding: 15px;
+            border: 2px solid #8f7a66;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .opt-btn:hover { background: #8f7a66; color: white; }
+
+        /* ANIMASI SHAKE */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+
+        .shake { animation: shake 0.4s; background: #ffcccc !important; }
+
+        #loading-text { font-style: italic; color: #888; }
+    </style>
+</head>
+<body>
+
+    <!-- HOME SCREEN -->
+    <div id="start-screen">
+        <h1 style="font-size: 50px; margin-bottom: 10px;">2048 MASTER QUIZ</h1>
+        <p style="max-width: 400px; line-height: 1.6;">
+            Gabungkan angka yang sama untuk memicu pertanyaan. <br>
+            <b>Peringatan:</b> Jika jawaban salah, permainan akan langsung diulang dari nol!
+        </p>
+        <button class="btn-main" onclick="initGame()">Mulai Permainan</button>
+    </div>
+
+    <!-- GAME UI -->
+    <div class="score-box">SKOR: <span id="score">0</span></div>
+    <div class="grid" id="grid"></div>
+
+    <!-- MODAL KUIS -->
+    <div id="quiz-modal">
+        <div id="modal-box" class="modal-content">
+            <h3 id="category-text" style="color: #8f7a66; margin: 0;">Memuat Pertanyaan...</h3>
+            <h2 id="question-text">Menunggu pertanyaan dari server...</h2>
+            <div id="options" class="options-grid"></div>
+            <p style="margin-top: 20px; font-weight: bold; color: var(--danger);">⚠️ JANGAN SALAH JAWAB!</p>
+        </div>
+    </div>
+
+    <script>
+        const gridDisplay = document.getElementById('grid');
+        const scoreDisplay = document.getElementById('score');
+        const quizModal = document.getElementById('quiz-modal');
+        const modalBox = document.getElementById('modal-box');
+        const startScreen = document.getElementById('start-screen');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options');
+        const categoryText = document.getElementById('category-text');
+
+        let squares = [];
+        let score = 0;
+        let isQuizActive = false;
+
+        // Fungsi inisialisasi awal
+        function initGame() {
+            startScreen.style.display = 'none';
+            score = 0;
+            scoreDisplay.innerHTML = 0;
+            createBoard();
+        }
+
+        function createBoard() {
+            gridDisplay.innerHTML = '';
+            squares = [];
+            for (let i = 0; i < 16; i++) {
+                let square = document.createElement('div');
+                square.innerHTML = "";
+                square.classList.add('cell');
+                gridDisplay.appendChild(square);
+                squares.push(square);
+            }
+            generate(); generate();
+            updateStyles();
+        }
+
+        function generate() {
+            let empty = squares.filter(s => s.innerHTML == "");
+            if (empty.length > 0) {
+                empty[Math.floor(Math.random() * empty.length)].innerHTML = 2;
+            }
+        }
+
+        // FUNGSI API UNTUK 10.000+ PERTANYAAN
+        async function fetchQuestion() {
+            try {
+                const response = await fetch('https://opentdb.com/api.php?amount=1&type=multiple');
+                const data = await response.json();
+                return data.results[0];
+            } catch (error) {
+                // Fallback jika internet mati
+                return {
+                    category: "General",
+                    question: "Apa ibukota Indonesia?",
+                    correct_answer: "Jakarta",
+                    incorrect_answers: ["Bandung", "Surabaya", "Medan"]
+                };
+            }
+        }
+
+        // Decode karakter aneh dari API (seperti &quot;)
+        function decodeHTML(html) {
+            var txt = document.createElement("textarea");
+            txt.innerHTML = html;
+            return txt.value;
+        }
+
+        async function askQuiz(onSuccess) {
+            isQuizActive = true;
+            quizModal.style.display = 'flex';
+            questionText.innerHTML = "Memuat Pertanyaan...";
+            optionsContainer.innerHTML = "";
+
+            const qData = await fetchQuestion();
+            
+            categoryText.innerHTML = qData.category.toUpperCase();
+            questionText.innerHTML = decodeHTML(qData.question);
+            
+            let allOptions = [...qData.incorrect_answers, qData.correct_answer];
+            allOptions.sort(() => Math.random() - 0.5); // Acak posisi jawaban
+
+            allOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.classList.add('opt-btn');
+                btn.innerHTML = decodeHTML(opt);
+                btn.onclick = () => {
+                    if (decodeHTML(opt) === decodeHTML(qData.correct_answer)) {
+                        quizModal.style.display = 'none';
+                        isQuizActive = false;
+                        onSuccess();
+                    } else {
+                        triggerFail();
+                    }
+                };
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function triggerFail() {
+            modalBox.classList.add('shake');
+            setTimeout(() => {
+                alert("SALAH! Game diulang dari beranda.");
+                modalBox.classList.remove('shake');
+                quizModal.style.display = 'none';
+                isQuizActive = false;
+                startScreen.style.display = 'flex';
+                startScreen.innerHTML = `
+                    <h1 style="color:var(--danger)">GAME OVER</h1>
+                    <p>Skor Terakhir: ${score}</p>
+                    <button class="btn-main" onclick="initGame()">Ulangi Permainan</button>
+                `;
+            }, 500);
+        }
+
+        // Logika Gerakan 2048
+        function move(dir) {
+            let current = squares.map(s => parseInt(s.innerHTML || 0));
+            let mergeDetected = false;
+
+            // Cek Merge
+            if (dir==='left' || dir==='right') {
+                for(let i=0; i<16; i+=4) if(checkLineMerge([current[i], current[i+1], current[i+2], current[i+3]])) mergeDetected=true;
+            } else {
+                for(let i=0; i<4; i++) if(checkLineMerge([current[i], current[i+4], current[i+8], current[i+12]])) mergeDetected=true;
+            }
+
+            if (mergeDetected) {
+                askQuiz(() => executeMove(dir));
+            } else {
+                executeMove(dir);
+            }
+        }
+
+        function checkLineMerge(arr) {
+            let f = arr.filter(n => n !== 0);
+            for (let i=0; i<f.length-1; i++) if (f[i]===f[i+1]) return true;
+            return false;
+        }
+
+        function executeMove(direction) {
+            let hasChanged = false;
+            const horizontal = (direction === 'left' || direction === 'right');
+            const reverse = (direction === 'right' || direction === 'down');
+
+            for (let i = 0; i < 4; i++) {
+                let line = [];
+                for (let j = 0; j < 4; j++) {
+                    let idx = horizontal ? (i * 4 + j) : (j * 4 + i);
+                    line.push(parseInt(squares[idx].innerHTML || 0));
+                }
+
+                let filtered = line.filter(n => n);
+                if (reverse) filtered.reverse();
+                
+                for (let j = 0; j < filtered.length - 1; j++) {
+                    if (filtered[j] === filtered[j+1]) {
+                        filtered[j] *= 2;
+                        score += filtered[j];
+                        filtered.splice(j+1, 1);
+                    }
+                }
+                while (filtered.length < 4) filtered.push(0);
+                if (reverse) filtered.reverse();
+
+                for (let j = 0; j < 4; j++) {
+                    let idx = horizontal ? (i * 4 + j) : (j * 4 + i);
+                    if (parseInt(squares[idx].innerHTML || 0) !== filtered[j]) hasChanged = true;
+                    squares[idx].innerHTML = filtered[j] === 0 ? "" : filtered[j];
+                }
+            }
+            if (hasChanged) { generate(); updateStyles(); scoreDisplay.innerHTML = score; }
+        }
+
+        function updateStyles() {
+            squares.forEach(sq => {
+                let v = sq.innerHTML;
+                sq.className = 'cell' + (v ? ' tile-' + v : '');
+            });
+        }
+
+        document.addEventListener('keyup', (e) => {
+            if (isQuizActive || startScreen.style.display !== 'none') return;
+            if (e.key === 'ArrowLeft') move('left');
+            if (e.key === 'ArrowUp') move('up');
+            if (e.key === 'ArrowRight') move('right');
+            if (e.key === 'ArrowDown') move('down');
+        });
+
+    </script>
+</body>
+</html>
